@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+use Net::IPA::Lite;
+use Data::Dumper;
+
+my $ipa = Net::IPA::Lite->new();
+
+print Dumper($ipa);

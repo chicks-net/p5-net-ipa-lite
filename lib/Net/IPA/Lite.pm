@@ -4,6 +4,12 @@ use 5.006;
 use strict;
 use warnings;
 
+use REST::Client;
+use JSON;
+use Data::Dumper;
+use MIME::Base64;
+use IO::Socket::SSL qw( SSL_VERIFY_NONE );
+
 =head1 NAME
 
 Net::IPA::Lite - a wrapper around the JSON-RPC API provided by FreeIPA.
@@ -55,11 +61,18 @@ our $VERSION = '0.02';
 
 =head1 SUBROUTINES/METHODS
 
-=head2 function1
+=head2 new
 
 =cut
 
-sub function1 {
+sub new {
+	my $proto = shift;
+	my $class = ref($proto) || $proto;
+	my %args = @_;
+
+	my $self = {};
+	bless($self, $class);
+	return $self;
 }
 
 =head2 function2
