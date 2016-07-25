@@ -6,32 +6,52 @@ use warnings;
 
 =head1 NAME
 
-Net::IPA::Lite - The great new Net::IPA::Lite!
+Net::IPA::Lite - a wrapper around the JSON-RPC API provided by FreeIPA.
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
-
-Perhaps a little code snippet.
-
     use Net::IPA::Lite;
 
-    my $foo = Net::IPA::Lite->new();
+    my $ipa = Net::IPA::Lite->new();
+
+    $ipa->version('2.156');
+
+    # login
+    my $success = $ipa->login(
+        username => 'your_username',
+        password => 'your_password',
+    );
+
+    # deal with failed login
+    unless ($success) {
+        my $rc = $ipa->responseCode();
+        my $msg = $ipa->responseContent();
+        die "login got $rc\n$msg\n";
+    }
+
+    # add an A record
+    $success = $ipa->dnsrecord_add(
+        dnszoneidnsname => 'example.com',
+        idnsname => 'test01',
+        a_part_ip_address => '8.8.8.8',
+    );
+
+    # remove the A record
+    $success = $ipa->dnsrecord_add(
+        dnszoneidnsname => 'example.com',
+        idnsname => 'test01',
+        arecord => ['8.8.8.8'],
+    );
     ...
-
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
 
 =head1 SUBROUTINES/METHODS
 
