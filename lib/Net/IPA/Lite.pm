@@ -71,15 +71,29 @@ sub new {
 	my %args = @_;
 
 	my $self = {};
+	$self->{client} = REST::Client->new();
+	$self->{client}->getUseragent()->cookie_jar({}); # empty internal cookie jar
+
+	# don't verify SSL certs
+	$self->{client}->getUseragent()->ssl_opts(verify_hostname => 0);
+	$self->{client}->getUseragent()->ssl_opts(SSL_verify_mode => SSL_VERIFY_NONE);
+
 	bless($self, $class);
 	return $self;
 }
 
-=head2 function2
+=head2 login
 
 =cut
 
-sub function2 {
+sub login {
+	my $self = shift;
+	my %args = @_;
+
+	die "IPA:login():no username" unless defined $args{username};
+	die "IPA:login():no password" unless defined $args{password};
+	die "IPA:login():empty username" unless length $args{username};
+	die "IPA:login():empty password" unless length $args{password};
 }
 
 =head1 AUTHOR
