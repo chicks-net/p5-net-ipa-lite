@@ -62,6 +62,8 @@ our $VERSION = '0.02';
 
 =head1 PUBLIC METHODS
 
+These methods are specific to this module.
+
 =head2 new
 
 Create new instance of interface.
@@ -163,14 +165,22 @@ sub login {
 	$client->POST("/ipa/session/login_password", substr($params, 1), $headers);
 	my $auth_rc = $client->responseCode();
 	unless ($auth_rc eq '200') {
-		die "login rc=$auth_rc for $username\n";
+		die "failed login rc=$auth_rc for $username\n";
 	}
 
+	# login is ok, so get ready for JSON-RPC.....
 
 	# fix referer
 	my $hostname = $self->{hostname};
 	my $url = "https://$hostname/ipa";
 	$self->{referer} = $url;
+
+	# fix headers
+	$client->getUseragent()->default_header(
+		'Accept' => 'application/json',
+		'Content-Type' => 'application/json',
+		'referer' => $url,
+	);
 
 	return $auth_rc;
 }
@@ -197,7 +207,179 @@ sub version {
 	return 1;
 }
 
+=head1 FREEIPA METHODS
+
+These methods are a subset of the available API calls provided by FreeIPA.
+All of these are implemented using JSON-RPC.
+
+=head2 dnsrecord_add
+
+Add a DNS record.  Currently limited to A records.
+
+    # add an A record
+    $success = $ipa->dnsrecord_add(
+        dnszoneidnsname => 'example.com',
+        idnsname => 'test01',
+        a_part_ip_address => '8.8.8.8',
+    );
+
+=cut
+
+sub dnsrecord_add {
+	my $self = shift;
+	my %args = @_;
+
+	die "IPA:login():no dnszoneidnsname" unless defined $args{dnszoneidnsname};
+	die "IPA:login():empty dnszoneidnsname" unless length $args{dnszoneidnsname};
+	die "IPA:login():no idnsname" unless defined $args{idnsname};
+	die "IPA:login():empty idnsname" unless length $args{idnsname};
+	die "IPA:login():no A record" unless defined $args{arecord} or defined $args{a_part_ip_address};;
+
+	my $rpc_params = \%args;
+	$self->_jsonrpc('dnsrecord_add',$rpc_params);
+
+	return 1;
+}
+
+=head2 dnsrecord_del
+
+Remove a DNS record.  Currently limited to A records.
+
+    # remove the A record
+    $success = $ipa->dnsrecord_add(
+        dnszoneidnsname => 'example.com',
+        idnsname => 'test01',
+        arecord => ['8.8.8.8'],
+    );
+
+=cut
+
+sub dnsrecord_del {
+	my $self = shift;
+	my %args = @_;
+
+	die "IPA:login():no dnszoneidnsname" unless defined $args{dnszoneidnsname};
+	die "IPA:login():empty dnszoneidnsname" unless length $args{dnszoneidnsname};
+	die "IPA:login():no idnsname" unless defined $args{idnsname};
+	die "IPA:login():empty idnsname" unless length $args{idnsname};
+	die "IPA:login():no A record" unless defined $args{arecord} or defined $args{a_part_ip_address};;
+
+	my $rpc_params = \%args;
+	$self->_jsonrpc('dnsrecord_del',$rpc_params);
+
+	return 1;
+}
+
 =head1 INTERNAL METHODS
+
+=head2 _decode_json
+
+Decode JSON.
+
+    my $ref = $ipa->_decode_json($raw_json);
+
+=cut
+
+sub _decode_json {
+	my $self = shift;
+	my $raw_json = shift;
+
+	my $json_parser = JSON->new->allow_nonref;
+	my $data_out = $json_parser->decode( $raw_json );
+
+	return $data_out;
+}
+
+=head2 _jsonrpc
+
+Call the JSON-RPC endpoint with a given method.
+
+    $ipa->_jsonrpc($method,\%args);
+
+=cut
+
+sub _jsonrpc {
+	my $self = shift;
+	my $method = shift;
+	my $args = shift;
+
+	my $client = $self->{client};
+	my $debug = $self->{debug} || 0;
+
+	die "IPA:_jsonrpc():no method" unless defined $method;
+	die "IPA:_jsonrpc():empty method" unless length $method;
+	die "IPA:_jsonrpc():bad method '$method'" unless $method =~ /\w+/;
+
+	# validate referer
+	my $referer = $self->{referer};
+	die "IPA:_jsonrpc():no referer" unless defined $referer;
+	die "IPA:_jsonrpc():empty referer" unless length $referer;
+	die "IPA:_jsonrpc():bad referer 'referer'" unless $referer =~ /https?:.*\w+/;
+
+	# add version
+	$args->{version} = "" . $self->{version};
+
+	my $req_json = $self->_json_rpc_request($method,$args);
+	$client->POST('/ipa/session/json',$req_json);
+
+	my $rc = $client->responseCode();
+	my $resp_content = $client->responseContent();
+	my $resp = $self->_decode_json($resp_content);
+	unless ($rc eq '200' and not defined $resp->{error} ) {
+		my $err = $resp->{error};
+		die "$method returned $rc: ["
+			. $err->{name}
+			. "/"
+			. $err->{code}
+			. "] "
+			. $err->{message}
+			. "\n";
+	}
+
+	print $client->responseContent(), "\n" if $debug;
+	my $summary = $resp->{result}->{summary}
+		|| "Added record " . $resp->{result}->{result}->{idnsname}->[0]->{"__dns_name__"};
+	print "$method returned $rc ($summary)\n";
+
+	return 1;
+}
+
+=head2 _json_rpc_request
+
+Build a JSON-RPC request.
+
+    $ipa->_json_rpc_request($method,\%args);
+
+=cut
+
+our $json_request_next = 0;
+sub _json_rpc_request {
+	my $self = shift;
+        my ($method,$params) = @_;
+
+	my $debug = $self->{debug} || 0;
+
+        my $id = $json_request_next;
+        $json_request_next++;
+
+        die "no method for JSON-RPC" unless length $method;
+        die "no params for JSON-RPC" unless ref $params;
+
+        my $request = {
+                id => $id,
+                method => $method,
+                params => [
+                        [], $params,
+                ],
+        };
+
+        my $json     = JSON->new->allow_nonref;
+        my $json_out = $json->pretty->canonical->allow_blessed->encode($request);
+
+        print $json_out if $debug;
+
+        return $json_out;
+}
 
 =head1 AUTHOR
 

@@ -11,15 +11,33 @@ $ipa->version(2.156);
 my $hostname = $ENV{IPA_HOST} || die 'no IPA_HOST defiend';
 $ipa->hostname($hostname);
 
-print Dumper($ipa),"\n";
+#print Dumper($ipa),"\n";
 
 my $username = $ENV{USER} || `id -un`;
 print "logging in as $username\n";
 my $password = password_ask('',0);
 #print "$username/$password\n";
 
-my $rc = $ipa->login(username => $username, password => $password);
+my $rc = $ipa->login(username => $username, password => $password); # dies on failure
 print "rc=$rc\n";
+
+my $test_domain = $ENV{IPA_TEST_DOMAIN} || 'example.com';
+my $test_hostname = "$username-test01";
+my $test_ip = '8.8.8.8';
+
+# add an A record
+$success = $ipa->dnsrecord_add(
+	dnszoneidnsname => $test_domain,
+	idnsname => $test_hostname,
+	a_part_ip_address => $test_ip,
+);
+
+# remove the A record
+$success = $ipa->dnsrecord_del(
+	dnszoneidnsname => $test_domain,
+	idnsname => $test_hostname,
+	arecord => [$test_ip],
+);
 
 sub password_ask {
         my ($password,$debug) = @_;
