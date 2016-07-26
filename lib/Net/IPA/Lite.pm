@@ -104,13 +104,18 @@ sub hostname {
 	my $self = shift;
 	my $hostname = shift;
 
+	# validate arguments
 	die "IPA:hostname():no hostname" unless defined $hostname;
 	die "IPA:hostname():empty hostname" unless length $hostname;
 
 	$self->{hostname} = $hostname;
 
 	my $url = "https://$hostname";
-	$self->{referer} = $url;
+
+	unless ($self->{referer}) {
+		$self->{referer} = $url;
+		$self->{client}->setHost($url);
+	}
 
 	return 1;
 }
@@ -132,14 +137,42 @@ sub login {
 	my $self = shift;
 	my %args = @_;
 
+	my $client = $self->{client};
+
+	# validate arguments
 	die "IPA:login():no username" unless defined $args{username};
 	die "IPA:login():no password" unless defined $args{password};
 	die "IPA:login():empty username" unless length $args{username};
 	die "IPA:login():empty password" unless length $args{password};
 
+	my $username = $args{username};
+	my $password = $args{password};
+
+	my $headers =  {
+		'Accept' => 'text/plain',
+		'referer' => $self->{referer},
+		'Content-Type' => 'application/x-www-form-urlencoded',
+	};
+
+	my $body = {
+		'user' => $username,
+		'password' => $password,
+	};
+
+	my $params = $client->buildQuery($body);
+	$client->POST("/ipa/session/login_password", substr($params, 1), $headers);
+	my $auth_rc = $client->responseCode();
+	unless ($auth_rc eq '200') {
+		die "login rc=$auth_rc for $username\n";
+	}
 
 
-	return -1; # TODO: unimplemented
+	# fix referer
+	my $hostname = $self->{hostname};
+	my $url = "https://$hostname/ipa";
+	$self->{referer} = $url;
+
+	return $auth_rc;
 }
 
 =head2 version

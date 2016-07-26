@@ -13,9 +13,10 @@ $ipa->hostname($hostname);
 
 print Dumper($ipa),"\n";
 
-my $password = password_ask('',0);
 my $username = $ENV{USER} || `id -un`;
-print "$username/$password\n";
+print "logging in as $username\n";
+my $password = password_ask('',0);
+#print "$username/$password\n";
 
 my $rc = $ipa->login(username => $username, password => $password);
 print "rc=$rc\n";
