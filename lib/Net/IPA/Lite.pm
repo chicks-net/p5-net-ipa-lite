@@ -59,9 +59,17 @@ our $VERSION = '0.02';
     );
     ...
 
-=head1 SUBROUTINES/METHODS
+=head1 PUBLIC METHODS
 
 =head2 new
+
+Create new instance of interface.
+
+    use Net::IPA::Lite;
+
+    my $ipa = Net::IPA::Lite->new();
+
+WARNING: this module currently ignores SSL certificate verification.
 
 =cut
 
@@ -84,6 +92,15 @@ sub new {
 
 =head2 login
 
+Login to IPA.  Currently only username/password authentication is supported.
+
+    my $success = $ipa->login(
+        username => 'your_username',
+        password => 'your_password',
+    );
+
+So the two arguments are C<username> and C<password> in hash-style.
+
 =cut
 
 sub login {
@@ -95,6 +112,25 @@ sub login {
 	die "IPA:login():empty username" unless length $args{username};
 	die "IPA:login():empty password" unless length $args{password};
 }
+
+=head2 version
+
+=cut
+
+sub version {
+	my $self = shift;
+	my $version = shift;
+
+	die "IPA:version():no version" unless defined $version;
+	die "IPA:version():empty version" unless length $version;
+	die "IPA:version():bad version '$version'" unless $version =~ /^[.0-9]+$/;
+
+	$self->{version} = $version;
+
+	return 1;
+}
+
+=head1 INTERNAL METHODS
 
 =head1 AUTHOR
 

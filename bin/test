@@ -5,5 +5,6 @@ use Net::IPA::Lite;
 use Data::Dumper;
 
 my $ipa = Net::IPA::Lite->new();
+$ipa->version(2.156);
 
 print Dumper($ipa);
