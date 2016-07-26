@@ -30,6 +30,7 @@ our $VERSION = '0.02';
     my $ipa = Net::IPA::Lite->new();
 
     $ipa->version('2.156');
+    $ipa->hostname('ipa.foo.com');
 
     # login
     my $success = $ipa->login(
@@ -90,6 +91,30 @@ sub new {
 	return $self;
 }
 
+=head2 hostname
+
+Set the API hostname to pass to use to talk to FreeIPA.
+There is no default so this is required for login or any JSON-API calls.
+
+    $ipa->hostname('ipa.foo.com');
+
+=cut
+
+sub hostname {
+	my $self = shift;
+	my $hostname = shift;
+
+	die "IPA:hostname():no hostname" unless defined $hostname;
+	die "IPA:hostname():empty hostname" unless length $hostname;
+
+	$self->{hostname} = $hostname;
+
+	my $url = "https://$hostname";
+	$self->{referer} = $url;
+
+	return 1;
+}
+
 =head2 login
 
 Login to IPA.  Currently only username/password authentication is supported.
@@ -111,9 +136,18 @@ sub login {
 	die "IPA:login():no password" unless defined $args{password};
 	die "IPA:login():empty username" unless length $args{username};
 	die "IPA:login():empty password" unless length $args{password};
+
+
+
+	return -1; # TODO: unimplemented
 }
 
 =head2 version
+
+Set the API version to pass to use in JSON-RPC calls -- so this applies to everything
+after C<login()>.  There is no default so this is required (other than for login).
+
+    $ipa->version('2.156');
 
 =cut
 

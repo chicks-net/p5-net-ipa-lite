@@ -3,8 +3,36 @@
 use lib '../lib';
 use Net::IPA::Lite;
 use Data::Dumper;
+use IO::Prompt;
 
 my $ipa = Net::IPA::Lite->new();
 $ipa->version(2.156);
 
-print Dumper($ipa);
+my $hostname = $ENV{IPA_HOST} || die 'no IPA_HOST defiend';
+$ipa->hostname($hostname);
+
+print Dumper($ipa),"\n";
+
+my $password = password_ask('',0);
+my $username = $ENV{USER} || `id -un`;
+print "$username/$password\n";
+
+my $rc = $ipa->login(username => $username, password => $password);
+print "rc=$rc\n";
+
+sub password_ask {
+        my ($password,$debug) = @_;
+
+        unless (length $password) {
+                while ( ! length $password ) {
+                        prompt  -e => '*', -p => "password: ";
+                        $password = $_;
+                        if ($debug) {
+                                my $pass_len = length $password;
+                                print "got password of length $pass_len\n";
+                        }
+                }
+        }
+
+        return $password;
+}
